@@ -40,7 +40,8 @@ SoftwareSerial mySerial (pinRX, pinTX); //rx, tx
 #include <ArduinoJson.h>
 
 #define pinLDR 4
-uint8_t lumLDR;
+//Esta ya no la necesitas si usas el get como te lo sugiero aca
+//uint8_t lumLDR;
 
 #include <DHT.h> // incluir libreria DHT sensor
 #define DHTPIN 7 // sensor en pin D7
@@ -48,18 +49,22 @@ uint8_t lumLDR;
 DHT dht(DHTPIN, DHTTYPE);  // crea objeto
 byte tempDHT, humDHT, sensDHT;
 
-  void getLightLDR() {
-    pinMode (pinLDR, INPUT);
-    lumLDR = map (analogRead(pinLDR), 0, 1024, 100, 0);
+//fijate que ahora devolves el valor y queda todo mas claro. No pasas por la variable global
+  int getLightLDR() {
+         //Esto se hace en el setup. Jamas cambia
+    //pinMode (pinLDR, INPUT);
+    int lumLDR = map (analogRead(pinLDR), 0, 1024, 100, 0);
 
     //Compruebe si alguna lectura fallo y salga antes (para volver a intentarlo).
     if  (isnan(lumLDR)) {
       Serial.println(F("Error al leer Luminosidad!"));
-      return;
+      //no creo que jamas pase esto, pero de todas maneras te devuelvo un valor invalido para que veas que queres hacer desde donde se llama esta funcion
+           return -1;
     }
     Serial.print(F("Luminosidad: %"));
     Serial.print(lumLDR);
     Serial.println(F(" Luz"));
+    return lumLDR     
   }
   void getTempDHT() {
 
@@ -118,32 +123,43 @@ void setup() {
   Serial.begin(9600);
   mySerial.begin(9600);
   dht.begin();
+       
+  pinMode (pinLDR, INPUT);
 }
 
 void loop() {
   // put your main code here, to run repeatedly:
   if (millis() >= lecturaMillis + 3000) {
     StaticJsonDocument<1000> doc;
-    JsonArray data = doc.createNestedArray("data");
-    serializeJson(doc, Serial);
-    serializeJson(doc, mySerial);
+     //Esto no tiene sentido y ni siquiera sabes que hace. Sacalo
+    //JsonArray data = doc.createNestedArray("data");
+    //serializeJson(doc, Serial);
+    //serializeJson(doc, mySerial);
 
     // Si el LDR no está conectado al pin correcto o si no
     // funciona, no se enviarán datos
-    getLightLDR();
+         
+    //Estas pueden ser variables locales, en este PR te cambie solo la de LDR, fijate como esta hecho y cambia las otras. 
+    //Tener variables globales si se puede evitar facilmente no esta bueno     
     getTempDHT();
     getHumDHT();
     getSensDHT();
 
-    doc["lumLDR"] = lumLDR;
+         //Aca tenes como asignar sin tener la variable global
+         //ademas tiene mas sentido asi porque le pusiste el nombre "GET"  a la funcion. GET es obtener algo. Como las estabas haciendo no habia nada que obtener, 
+         //sino que era mas bien un SET (set es poner el valor en una variable)
+    doc["lumLDR"] = getLightLDR();
     doc["tempDHT"] = tempDHT;
     doc["humDHT"] = humDHT;
     doc["sensDHT"] = sensDHT;
 
-    if (mySerial.available() > 0) {
+         //Serial.available() te dice qla cantidad de bytes que hay en el buffer de ENTRADA del serial, no tiene sentido checkear eso aca
+         //Para que usas 2 puertos serie?
+         //Aca estas mandando el json que te puse en el comentario en la captura del grupo de whatsapp
+    //if (mySerial.available() > 0) {
       serializeJsonPretty (doc, Serial);
       serializeJsonPretty (doc, mySerial);
-    }
+    //}
     lecturaMillis = millis();
   }
 }
